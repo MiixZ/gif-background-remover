@@ -1,0 +1,112 @@
+# GIF Background Remover
+
+A generic command-line tool for removing backgrounds from animated GIFs using pre-trained segmentation models from the [`rembg`](https://github.com/danielgatis/rembg) project.
+
+No model training is performed; the tool orchestrates existing models and preserves the original timing (frame delays and loop count) when rebuilding the output.
+
+## Features
+
+- Process a single GIF or a whole folder of GIFs.
+- Choose from several `rembg` models (`bria-rmbg`, `isnet-anime`, `u2net`, etc.).
+- Optional model combination for tricky subjects.
+- Optional pre-crop for scenes where the background object is confused with the subject.
+- Output to GIF, APNG, or WebP.
+- Preserves frame durations and loop settings.
+
+## Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/MiixZ/gif-background-remover.git
+cd gif-background-remover
+
+# Create a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+The first time you run the tool with a given model, `rembg` will download the corresponding ONNX weights to `~/.local/share/rembg/models/`. This is usually around 1–2 GB in total if you use several models.
+
+## Basic usage
+
+```bash
+# Remove the background from one GIF
+python gif_bg_remover.py input.gif
+
+# Process every GIF in a folder
+python gif_bg_remover.py ./gifs/
+
+# Specify output directory and model
+python gif_bg_remover.py ./gifs/ -o ./output/ -m isnet-anime
+```
+
+The result is saved next to the original file with the `-transparent` suffix by default.
+
+## Command-line options
+
+| Option | Description |
+| --- | --- |
+| `inputs` | One or more GIF files or directories. |
+| `-o, --output` | Output directory. Defaults to the input file's directory. |
+| `-m, --model` | Segmentation model. Default: `bria-rmbg`. |
+| `--combine` | Combine the selected model with `isnet-anime` using a lightened mask. Useful when the default model cuts off parts of the subject. |
+| `--crop WxH+X+Y` | Crop each frame before processing, then paste it back onto a transparent canvas of the original size. Format example: `420x281+80+0`. |
+| `--suffix` | Output filename suffix. Default: `-transparent`. |
+| `--format` | Output format: `GIF`, `APNG`, or `WEBP`. Default: `GIF`. |
+| `--dispose` | Frame disposal method: `previous`, `background`, or `none`. Default: `previous`. |
+| `--quality` | Maximum palette size for GIF output. Default: `256`. |
+
+## Model selection tips
+
+- **`bria-rmbg`** is the default and works well for general images, including most anime scenes with plain backgrounds.
+- **`isnet-anime`** is tuned for anime-style illustrations and sometimes preserves facial details better than `bria-rmbg`.
+- **`u2net`** and **`u2net_human_seg`** are the classic rembg models; the human-seg variant is good for photos of people.
+
+When a single model cuts off part of the subject (for example, around the eyes), try `--combine` to merge its mask with `isnet-anime`.
+
+## Handling hard cases
+
+Some GIFs contain background objects whose colors are very similar to the subject. In those cases the model may include the background as part of the foreground mask.
+
+### Example: background object on the left edge
+
+If the left side of every frame contains a lamp, wall, or other static object that the model keeps including, crop it away before processing:
+
+```bash
+python gif_bg_remover.py tricky.gif \
+  --crop 420x281+80+0 \
+  -m bria-rmbg
+```
+
+This crops each frame to a 420×281 rectangle starting at (80, 0), removes the background from that crop, and pastes the result back into a transparent 500×281 canvas. The final GIF keeps the original dimensions, minus the cropped-out distraction.
+
+### Example: model cuts the subject's face
+
+If `bria-rmbg` removes part of the subject's face because it is too close to the background color, combine it with `isnet-anime`:
+
+```bash
+python gif_bg_remover.py tricky.gif \
+  -m bria-rmbg \
+  --combine
+```
+
+The tool creates a binary mask from each model and keeps any pixel that either model classifies as foreground.
+
+## Output formats
+
+- **GIF** is the default and most compatible. GIF transparency is 1-bit, so very soft edges may look slightly pixelated.
+- **APNG** preserves full 8-bit alpha and works in most modern browsers.
+- **WebP** also preserves full alpha and usually produces smaller files.
+
+## Notes
+
+- The tool coalesces animated GIFs into full frames before processing, so every disposal method is applied to complete frames.
+- Processing speed depends on the model and image size; a typical 500×280 GIF takes a few seconds per frame on a CPU.
+- This tool is intended for personal use. Respect copyright when processing material you do not own.
+
+## License
+
+MIT

@@ -1,0 +1,22 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Input/output files (do not commit user media)
+*.gif
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.apng
+output/
+
+# OS files
+.DS_Store
+Thumbs.db
