@@ -63,6 +63,28 @@ The result is saved next to the original file with the `-transparent` suffix by 
 | `--dispose` | Frame disposal method: `previous`, `background`, or `none`. Default: `previous`. |
 | `--quality` | Maximum palette size for GIF output. Default: `256`. |
 
+## Examples
+
+A real before/after pair, 720×1280, 115 frames, 11.5 seconds, flat white background.
+
+**Original**
+
+<img src="https://github.com/MiixZ/gif-background-remover/releases/download/v1.0.0/miku.gif" width="280" alt="Original GIF with a white background">
+
+**Processed**
+
+<img src="https://github.com/MiixZ/gif-background-remover/releases/download/v1.0.0/miku-transparent.gif" width="280" alt="Same GIF with the background removed">
+
+Produced with:
+
+```bash
+python gif_bg_remover.py miku.gif --bg-color auto
+```
+
+The `--bg-color auto` step is what removes the enclosed white areas the model keeps, such as the gap between the legs, while `--bg-min-area` (0.05 % by default) protects small white details like the highlights in the eyes.
+
+Both GIFs are attached to the [v1.0.0 release](https://github.com/MiixZ/gif-background-remover/releases/tag/v1.0.0) instead of being committed, so they do not bloat the git history. The Miku artwork belongs to its original author and is included only to demonstrate the tool.
+
 ## Model selection tips
 
 - **`bria-rmbg`** is the default and works well for general images, including most anime scenes with plain backgrounds.
