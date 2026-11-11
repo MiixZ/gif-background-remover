@@ -10,6 +10,7 @@ No model training is performed; the tool orchestrates existing models and preser
 - Choose from several `rembg` models (`bria-rmbg`, `isnet-anime`, `u2net`, etc.).
 - Optional model combination for tricky subjects.
 - Optional pre-crop for scenes where the background object is confused with the subject.
+- Optional flat-colour removal for enclosed background regions the model misses.
 - Output to GIF, APNG, or WebP.
 - Preserves frame durations and loop settings.
 
@@ -54,6 +55,8 @@ The result is saved next to the original file with the `-transparent` suffix by 
 | `-m, --model` | Segmentation model. Default: `bria-rmbg`. |
 | `--combine` | Combine the selected model with `isnet-anime` using a lightened mask. Useful when the default model cuts off parts of the subject. |
 | `--crop WxH+X+Y` | Crop each frame before processing, then paste it back onto a transparent canvas of the original size. Format example: `420x281+80+0`. |
+| `--bg-color auto\|#RRGGBB` | Also remove a flat background colour (sampled from the corners with `auto`). Removes enclosed background regions the model keeps, such as the gap between legs. |
+| `--bg-fuzz PERCENT` | Colour tolerance for `--bg-color`. Default: `4`. |
 | `--suffix` | Output filename suffix. Default: `-transparent`. |
 | `--format` | Output format: `GIF`, `APNG`, or `WEBP`. Default: `GIF`. |
 | `--dispose` | Frame disposal method: `previous`, `background`, or `none`. Default: `previous`. |
@@ -95,11 +98,35 @@ python gif_bg_remover.py tricky.gif \
 
 The tool creates a binary mask from each model and keeps any pixel that either model classifies as foreground.
 
+### Example: enclosed background the model does not see
+
+Segmentation models often miss background regions that are completely surrounded by the subject, such as the gap between the legs, the space inside an arm, or a hole under a skirt. Those regions stay opaque and appear as a coloured patch that flickers between frames.
+
+If the background is a single flat colour, remove it as well as the model mask:
+
+```bash
+python gif_bg_remover.py tricky.gif --bg-color auto
+```
+
+`auto` samples the colour from the four frame corners. You can also pass an explicit value, and loosen the tolerance when the background is not perfectly uniform:
+
+```bash
+python gif_bg_remover.py tricky.gif --bg-color '#FFFFFF' --bg-fuzz 6
+```
+
+The final alpha is the model mask **intersected** with "not background colour", so ordinary white details on the subject are only removed when they match the background within the fuzz tolerance. Lower `--bg-fuzz` if the subject loses pale areas.
+
 ## Output formats
 
-- **GIF** is the default and most compatible. GIF transparency is 1-bit, so very soft edges may look slightly pixelated.
+- **GIF** is the default and most compatible. Frames are assembled with ImageMagick when it is installed, because it handles palettes and frame disposal reliably for large transparent frames; without ImageMagick the tool falls back to Pillow. GIF transparency is 1-bit, so very soft edges may look slightly pixelated.
 - **APNG** preserves full 8-bit alpha and works in most modern browsers.
 - **WebP** also preserves full alpha and usually produces smaller files.
+
+## Requirements
+
+- Python 3.10 or newer.
+- `onnxruntime`, installed automatically by `rembg[cpu]`.
+- ImageMagick (`magick`) is optional and recommended for GIF output.
 
 ## Notes
 
