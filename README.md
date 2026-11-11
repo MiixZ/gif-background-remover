@@ -136,6 +136,18 @@ python gif_bg_remover.py tricky.gif --bg-color auto --bg-min-area 0.2
 - `onnxruntime`, installed automatically by `rembg[cpu]`.
 - ImageMagick (`magick`) is optional and recommended for GIF output.
 
+## Model licences
+
+This project does not train, bundle, or redistribute any model weights. The segmentation models are downloaded by `rembg` into `~/.local/share/rembg/models/` on first use, from the project's own release page.
+
+| Model used by rembg | Upstream | Licence |
+| --- | --- | --- |
+| `bria-rmbg` (RMBG 2.0), the default | [briaai/RMBG-2.0](https://huggingface.co/briaai/RMBG-2.0) | CC BY-NC 4.0 — **non-commercial use only**; commercial use requires a separate agreement with BRIA AI |
+| `isnet-anime`, used by `--combine` | [SkyTNT/anime-seg](https://huggingface.co/skytnt/anime-seg) | Apache-2.0 |
+| any other `--model` value | see the [rembg](https://github.com/danielgatis/rembg) documentation | varies per model |
+
+Because the default model is non-commercial, check the licence of the model you choose before using this tool or its output commercially.
+
 ## Notes
 
 - The tool coalesces animated GIFs into full frames before processing, so every disposal method is applied to complete frames.
