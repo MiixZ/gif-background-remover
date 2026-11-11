@@ -28,6 +28,7 @@ from typing import Iterable, List, Sequence, Tuple
 import numpy as np
 from PIL import Image, ImageChops, ImageSequence
 from rembg import remove, new_session
+from scipy import ndimage
 
 
 SUPPORTED_MODELS = (
@@ -103,6 +104,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=float,
         default=4.0,
         help="Colour tolerance for --bg-color, in percent. Default: 4.",
+    )
+    parser.add_argument(
+        "--bg-min-area",
+        type=float,
+        default=0.05,
+        help=(
+            "Minimum size, as a percentage of the frame, for a --bg-color "
+            "region to be removed. Keeps small details that share the "
+            "background colour, such as the white of the eyes. Set to 0 to "
+            "remove every matching pixel. Default: 0.05."
+        ),
     )
     parser.add_argument(
         "--suffix",
@@ -222,8 +234,15 @@ def flat_background_mask(
     frame: Image.Image,
     color: Tuple[int, int, int],
     fuzz_percent: float,
+    min_area_fraction: float = 0.0,
 ) -> Image.Image:
-    """Return a black/white mask of pixels close to a flat background colour."""
+    """Return a black/white mask of pixels close to a flat background colour.
+
+    When ``min_area_fraction`` is greater than zero, only background-coloured
+    regions covering at least that percentage of the frame are removed. Small
+    details that happen to match the background colour, such as the white of
+    the eyes, are kept.
+    """
     rgb = np.asarray(frame.convert("RGB"), dtype=np.int16)
     reference = np.array(color, dtype=np.int16)
     difference = np.abs(rgb - reference)
@@ -232,6 +251,14 @@ def flat_background_mask(
     # per-channel threshold is the same fraction of 255.
     threshold = max(0.0, fuzz_percent) / 100.0 * 255.0
     matches = np.all(difference <= threshold, axis=2)
+
+    if min_area_fraction > 0.0 and matches.any():
+        # The argument is a percentage of the frame area.
+        min_area = max(1, int(matches.size * min_area_fraction / 100.0))
+        labels, count = ndimage.label(matches)
+        sizes = ndimage.sum(matches, labels, range(1, count + 1))
+        keep = [index + 1 for index, size in enumerate(sizes) if size >= min_area]
+        matches = np.isin(labels, keep) if keep else np.zeros_like(matches)
 
     mask_array = np.where(matches, 0, 255).astype(np.uint8)
     return Image.fromarray(mask_array, mode="L")
@@ -244,6 +271,7 @@ def process_frame(
     background_color: Tuple[int, int, int] | None = None,
     background_fuzz: float = 4.0,
     background_color_is_auto: bool = False,
+    background_min_area: float = 0.05,
 ) -> Image.Image:
     """Process a single frame, optionally combining two model masks."""
     primary = remove_background(frame, session_primary)
@@ -272,7 +300,9 @@ def process_frame(
         )
         # Intersect with the flat-colour mask: a pixel must be foreground for
         # the model *and* visibly different from the background colour.
-        keep_mask = flat_background_mask(frame, color, background_fuzz)
+        keep_mask = flat_background_mask(
+            frame, color, background_fuzz, background_min_area
+        )
         transparent = Image.new(output.mode, output.size, (0, 0, 0, 0))
         output = Image.composite(output, transparent, keep_mask)
 
@@ -450,6 +480,7 @@ def process_gif(
     background_color: Tuple[int, int, int] | None = None,
     background_fuzz: float = 4.0,
     background_auto: bool = False,
+    background_min_area: float = 0.05,
 ) -> Path:
     """Process a single GIF and write the result to disk."""
     session_primary = new_session(model)
@@ -475,6 +506,7 @@ def process_gif(
             background_color=background_color,
             background_fuzz=background_fuzz,
             background_color_is_auto=background_auto,
+            background_min_area=background_min_area,
         )
         processed_frames.append(processed)
 
@@ -523,6 +555,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             background_color=background_color,
             background_fuzz=args.bg_fuzz,
             background_auto=background_auto,
+            background_min_area=args.bg_min_area,
         )
         print(f"  -> {output_path}")
 

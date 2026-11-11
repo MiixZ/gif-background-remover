@@ -57,6 +57,7 @@ The result is saved next to the original file with the `-transparent` suffix by 
 | `--crop WxH+X+Y` | Crop each frame before processing, then paste it back onto a transparent canvas of the original size. Format example: `420x281+80+0`. |
 | `--bg-color auto\|#RRGGBB` | Also remove a flat background colour (sampled from the corners with `auto`). Removes enclosed background regions the model keeps, such as the gap between legs. |
 | `--bg-fuzz PERCENT` | Colour tolerance for `--bg-color`. Default: `4`. |
+| `--bg-min-area PERCENT` | Minimum size, as a percentage of the frame, for a matching region to be removed. Keeps small details that share the background colour, such as the white of the eyes. Default: `0.05`. |
 | `--suffix` | Output filename suffix. Default: `-transparent`. |
 | `--format` | Output format: `GIF`, `APNG`, or `WEBP`. Default: `GIF`. |
 | `--dispose` | Frame disposal method: `previous`, `background`, or `none`. Default: `previous`. |
@@ -115,6 +116,13 @@ python gif_bg_remover.py tricky.gif --bg-color '#FFFFFF' --bg-fuzz 6
 ```
 
 The final alpha is the model mask **intersected** with "not background colour", so ordinary white details on the subject are only removed when they match the background within the fuzz tolerance. Lower `--bg-fuzz` if the subject loses pale areas.
+
+Small details that share the background colour — eye highlights, sparkles, thin white trim — are protected by `--bg-min-area`: only matching regions covering at least that percentage of the frame are removed (0.05 % by default, roughly 460 pixels on a 720×1280 frame). Raise it if small background specks survive; set it to `0` to remove every matching pixel.
+
+```bash
+# Keep details smaller than 0.2% of the frame (e.g. a very detailed subject)
+python gif_bg_remover.py tricky.gif --bg-color auto --bg-min-area 0.2
+```
 
 ## Output formats
 
